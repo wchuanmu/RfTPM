@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "string_view": "c",
+        "semihosting.h": "c",
+        "fdt_helper.h": "c",
+        "intercept.h": "c",
+        "ff.h": "c",
+        "diskio.h": "c",
+        "ffconf.h": "c",
+        "time.h": "c",
+        "sbi_console.h": "c",
+        "platform.h": "c",
+        "fdt_timer.h": "c",
+        "cerrno": "c",
+        "aes.h": "c",
+        "ftpm.h": "c"
+    }
+}
