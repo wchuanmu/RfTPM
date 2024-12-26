@@ -1,0 +1,10 @@
+# 忽略所有文件
+*
+
+# 追踪 .c 文件
+!*.c
+!makefile*
+!Makefile*
+
+# 保留 .gitignore 文件
+!.gitignore
