@@ -1,6 +1,6 @@
 # RfTPM: A Firmware TPM Implementation for RISC-V
 
-RfTPM is the first firmware TPM (fTPM) architecture designed for RISC-V platforms. It provides secure TPM functionalities, including isolated execution, secure storage, trusted boot, and remote attestation, without requiring additional hardware costs. 
+RfTPM is the first firmware TPM (fTPM) architecture designed for RISC-V platforms. It provides secure TPM functionalities, including isolated execution, secure boot, trusted boot, and remote attestation, without requiring additional hardware costs. 
 
 ## Features
 - **Firmware TPM for RISC-V**: Implements TPM functionalities without dedicated hardware.
