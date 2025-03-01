@@ -44,7 +44,7 @@ make -C $BUILD_DIR \
      CROSS_COMPILE=$RISCV_TOOLCHAIN/riscv64-unknown-linux-gnu- \
      M=$FTPM_DIR/ftpm-driver modules
 ```
-#### 5. make -f makefiletpm20
+#### 5. Compile ibmtss-ftpm
 ```sh
 make -f makefiletpm20
 ```
