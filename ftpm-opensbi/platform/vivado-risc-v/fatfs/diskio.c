@@ -310,3 +310,79 @@ static int send_data_cmd(unsigned cmd, unsigned arg, void * buf, unsigned blocks
 
     return 0;
 }
+
+
+static int send_data_cmd_r(unsigned cmd, unsigned arg, void * buf, unsigned blocks) {
+    unsigned command = (cmd & 0x3f) << 8;
+
+    // R1
+    command |= 1; // 48 bits
+    command |= 1 << 3; // resp CRC
+    command |= 1 << 4; // resp OPCODE
+
+    if (blocks) {
+        command |= 1 << 5;
+        
+        if ((intptr_t)buf & 3) {
+            errno = ERR_BUF_ALIGNMENT;
+            return -1;
+        }
+        regs->dma_addres = (uint64_t)(intptr_t)buf;
+        regs->block_size = 511;
+        regs->block_count = blocks - 1;
+        regs->data_timeout = 0xFFFFFF;
+    }
+
+    regs->command = command;
+    regs->cmd_timeout = 0xFFFFF;
+    regs->argument = arg;
+
+    if (sdc_cmd_finish(cmd) < 0) return -1;
+    if (blocks) return sdc_data_finish();
+
+    return 0;
+}
+
+static int send_data_cmd_w(unsigned cmd, unsigned arg, const void * buf, unsigned blocks) {
+    unsigned command = (cmd & 0x3f) << 8;
+
+    // R1
+    command |= 1; // 48 bits
+    // command |= 1 << 2;
+    command |= 1 << 3; // resp CRC
+    command |= 1 << 4; // resp OPCODE
+
+    if (blocks) {
+        command |= 1 << 6;
+        
+        if ((intptr_t)buf & 3) {
+            errno = ERR_BUF_ALIGNMENT;
+            sbi_printf("[fTPM] send_data_cmd_w(): ERR_BUF_ALIGNMENT!!!\n");
+            return -1;
+        }
+        regs->dma_addres = (uint64_t)(intptr_t)buf;
+        regs->block_size = 511;
+        regs->block_count = blocks - 1;
+
+        // uint64_t timeout = (uint64_t)blocks * 512 * 8 / 1;
+        // timeout += (uint64_t)25000000 / 1000 * blocks;
+        // timeout += (uint64_t)25000000 / 100; // 10ms
+        // if (timeout > 0xffffff) timeout = 0;
+
+        // regs->data_timeout = timeout;
+
+        regs->data_timeout = 0xFFFFFF;
+    }
+
+    regs->command = command;
+    regs->cmd_timeout = 0xFFFFF;
+    regs->argument = arg;
+
+    if (sdc_cmd_finish(cmd) < 0) return -1;
+    if (blocks) return sdc_data_finish();
+
+    return 0;
+}
+
+#define send_cmd(cmd, arg) send_data_cmd(cmd, arg, NULL, 0)
+
