@@ -386,3 +386,74 @@ static int send_data_cmd_w(unsigned cmd, unsigned arg, const void * buf, unsigne
 
 #define send_cmd(cmd, arg) send_data_cmd(cmd, arg, NULL, 0)
 
+
+
+static int ini_sd(void) {
+    unsigned rca;
+
+    /* Reset controller */
+    regs->software_reset = 1;
+    while ((regs->software_reset & 1) == 0) {}
+    regs->clock_divider = 0x7c;
+    regs->software_reset = 0;
+    while (regs->software_reset) {}
+    usleep(5000);
+
+    card_type = 0;
+    drv_status = STA_NOINIT;
+
+    if (regs->capability & SDC_CAPABILITY_SD_RESET) {
+        /* Power cycle SD card */
+        regs->control |= SDC_CONTROL_SD_RESET;
+        usleep(1000000);
+        regs->control &= ~SDC_CONTROL_SD_RESET;
+        usleep(100000);
+    }
+
+    /* Enter Idle state */
+    send_cmd(CMD0, 0);
+
+    card_type = CT_SD1;
+    if (send_cmd(CMD8, 0x1AA) == 0) {
+        if ((response[0] & 0xfff) != 0x1AA) {
+            errno = ERR_CMD_CHECK;
+            return -1;
+        }
+        card_type = CT_SD2;
+    }
+
+    /* Wait for leaving idle state (ACMD41 with HCS bit) */
+    while (1) {
+        /* ACMD41, Set Operating Conditions: Host High Capacity & 3.3V */
+        if (send_cmd(CMD55, 0) < 0 || send_cmd(ACMD41, 0x40300000) < 0) return -1;
+        if (response[0] & (1 << 31)) {
+            if (response[0] & (1 << 30)) card_type |= CT_BLOCK;
+            break;
+        }
+    }
+
+    /* Enter Identification state */
+    if (send_cmd(CMD2, 0) < 0) return -1;
+
+    /* Get RCA (Relative Card Address) */
+    rca = 0x1234;
+    if (send_cmd(CMD3, rca << 16) < 0) return -1;
+    rca = response[0] >> 16;
+
+    /* Select card */
+    if (send_cmd(CMD7, rca << 16) < 0) return -1;
+
+    /* Clock 25MHz */
+    regs->clock_divider = 3;
+    usleep(10000);
+
+    /* Bus width 1-bit */
+    regs->control = 0;
+    if (send_cmd(CMD55, rca << 16) < 0 || send_cmd(ACMD6, 0) < 0) return -1;
+
+    /* Set R/W block length to 512 */
+    if (send_cmd(CMD16, 512) < 0) return -1;
+
+    drv_status &= ~STA_NOINIT;
+    return 0;
+}
