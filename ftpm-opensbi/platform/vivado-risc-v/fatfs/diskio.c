@@ -135,3 +135,87 @@ static FATFS fatfs __attribute__((section(".bss")));
 static int alt_mem __attribute__((section(".bss")));
 static FIL fd __attribute__((section(".bss")));
 
+
+const char * errno_to_str(void) {
+    switch (errno) {
+    case FR_OK: return "No error";
+    case FR_DISK_ERR: return "Disk I/O error";
+    case FR_INT_ERR: return "Assertion failed";
+    case FR_NOT_READY: return "Disk not ready";
+    case FR_NO_FILE: return "File not found";
+    case FR_NO_PATH: return "Path not found";
+    case FR_INVALID_NAME: return "Invalid path";
+    case FR_DENIED: return "Access denied";
+    case FR_EXIST: return "Already exist";
+    case FR_INVALID_OBJECT: return "The FS object is invalid";
+    case FR_WRITE_PROTECTED: return "The drive is write protected";
+    case FR_INVALID_DRIVE: return "The drive number is invalid";
+    case FR_NOT_ENABLED: return "The volume has no work area";
+    case FR_NO_FILESYSTEM: return "Not a valid FAT volume";
+    case FR_MKFS_ABORTED: return "The f_mkfs() aborted";
+    case FR_TIMEOUT: return "Timeout";
+    case FR_LOCKED: return "Locked";
+    case FR_NOT_ENOUGH_CORE: return "Not enough memory";
+    case FR_TOO_MANY_OPEN_FILES: return "Too many open files";
+    case ERR_EOF: return "Unexpected EOF";
+    case ERR_NOT_ELF: return "Not an ELF file";
+    case ERR_ELF_BITS: return "Wrong ELF word size";
+    case ERR_ELF_ENDIANNESS: return "Wrong ELF endianness";
+    case ERR_CMD_CRC: return "Command CRC error";
+    case ERR_CMD_CHECK: return "Command code check error";
+    case ERR_DATA_CRC: return "Data CRC error";
+    case ERR_DATA_FIFO: return "Data FIFO error";
+    case ERR_BUF_ALIGNMENT: return "Bad buffer alignment";
+    }
+    return "Unknown error code";
+}
+
+static void usleep(unsigned us) {
+    uintptr_t cycles0;
+    uintptr_t cycles1;
+    asm volatile ("csrr %0, 0xB00" : "=r" (cycles0));
+    for (;;) {
+        asm volatile ("csrr %0, 0xB00" : "=r" (cycles1));
+        if (cycles1 - cycles0 >= us * 100) break;
+    }
+}
+
+static int sdc_cmd_finish(unsigned cmd) {
+    while (1) {
+        unsigned status = regs->cmd_int_status;
+        if (status) {
+            // clear interrupts
+            regs->cmd_int_status = 0;
+            while (regs->software_reset != 0) {}
+            if (status == SDC_CMD_INT_STATUS_CC) {
+                // get response
+                response[0] = regs->response1;
+                response[1] = regs->response2;
+                response[2] = regs->response3;
+                response[3] = regs->response4;
+                return 0;
+            }
+            errno = FR_DISK_ERR;
+            if (status & SDC_CMD_INT_STATUS_CTE) errno = FR_TIMEOUT;
+            if (status & SDC_CMD_INT_STATUS_CCRC) errno = ERR_CMD_CRC;
+            if (status & SDC_CMD_INT_STATUS_CIE) errno = ERR_CMD_CHECK;
+            break;
+        }
+    }
+    return -1;
+}
+
+static int sdc_data_finish(void) {
+    int status;
+
+    while ((status = regs->dat_int_status) == 0) {}
+    regs->dat_int_status = 0;
+    while (regs->software_reset != 0) {}
+
+    if (status == SDC_DAT_INT_STATUS_TRS) return 0;
+    errno = FR_DISK_ERR;
+    if (status & SDC_DAT_INT_STATUS_CTE) errno = FR_TIMEOUT;
+    if (status & SDC_DAT_INT_STATUS_CRC) errno = ERR_DATA_CRC;
+    if (status & SDC_DAT_INT_STATUS_CFE) errno = ERR_DATA_FIFO;
+    return -1;
+}
