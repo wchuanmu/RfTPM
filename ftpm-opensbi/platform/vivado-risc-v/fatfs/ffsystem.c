@@ -110,7 +110,12 @@ int ff_mutex_create (	/* Returns 1:Function succeeded or 0:Could not create the 
 }
 
 
-
+/*------------------------------------------------------------------------*/
+/* Delete a Mutex                                                         */
+/*------------------------------------------------------------------------*/
+/* This function is called in f_mount function to delete a mutex or
+/  semaphore of the volume created with ff_mutex_create function.
+*/
 
 void ff_mutex_delete (	/* Returns 1:Function succeeded or 0:Could not delete due to an error */
 	int vol				/* Mutex ID: Volume mutex (0 to FF_VOLUMES - 1) or system mutex (FF_VOLUMES) */
@@ -136,6 +141,13 @@ void ff_mutex_delete (	/* Returns 1:Function succeeded or 0:Could not delete due
 #endif
 }
 
+
+/*------------------------------------------------------------------------*/
+/* Request a Grant to Access the Volume                                   */
+/*------------------------------------------------------------------------*/
+/* This function is called on enter file functions to lock the volume.
+/  When a 0 is returned, the file function fails with FR_TIMEOUT.
+*/
 
 int ff_mutex_take (	/* Returns 1:Succeeded or 0:Timeout */
 	int vol			/* Mutex ID: Volume mutex (0 to FF_VOLUMES - 1) or system mutex (FF_VOLUMES) */
@@ -164,6 +176,12 @@ int ff_mutex_take (	/* Returns 1:Succeeded or 0:Timeout */
 
 
 
+/*------------------------------------------------------------------------*/
+/* Release a Grant to Access the Volume                                   */
+/*------------------------------------------------------------------------*/
+/* This function is called on leave file functions to unlock the volume.
+*/
+
 void ff_mutex_give (
 	int vol			/* Mutex ID: Volume mutex (0 to FF_VOLUMES - 1) or system mutex (FF_VOLUMES) */
 )
@@ -187,3 +205,4 @@ void ff_mutex_give (
 }
 
 #endif	/* FF_FS_REENTRANT */
+
