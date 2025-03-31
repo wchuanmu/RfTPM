@@ -219,3 +219,94 @@ static int sdc_data_finish(void) {
     if (status & SDC_DAT_INT_STATUS_CFE) errno = ERR_DATA_FIFO;
     return -1;
 }
+
+
+static int send_data_cmd(unsigned cmd, unsigned arg, void * buf, unsigned blocks) {
+    unsigned command = (cmd & 0x3f) << 8;
+    switch (cmd) {
+    case CMD0:
+    case CMD4:
+    case CMD15:
+        // No responce
+        break;
+    case CMD11:
+    case CMD13:
+    case CMD16:
+    case CMD17:
+    case CMD18:
+    case CMD19:
+    case CMD23:
+    case CMD24:
+    case CMD25:
+    case CMD27:
+    case CMD30:
+    case CMD32:
+    case CMD33:
+    case CMD42:
+    case CMD55:
+    case CMD56:
+    case ACMD6:
+        // R1
+        command |= 1; // 48 bits
+        command |= 1 << 3; // resp CRC
+        command |= 1 << 4; // resp OPCODE
+        break;
+    case CMD7:
+    case CMD12:
+    case CMD20:
+    case CMD28:
+    case CMD29:
+    case CMD38:
+        // R1b
+        command |= 1; // 48 bits
+        command |= 1 << 2; // busy
+        command |= 1 << 3; // resp CRC
+        command |= 1 << 4; // resp OPCODE
+        break;
+    case CMD2:
+    case CMD9:
+    case CMD10:
+        // R2
+        command |= 2; // 136 bits
+        command |= 1 << 3; // resp CRC
+        break;
+    case ACMD41:
+        // R3
+        command |= 1; // 48 bits
+        break;
+    case CMD3:
+        // R6
+        command |= 1; // 48 bits
+        command |= 1 << 2; // busy
+        command |= 1 << 3; // resp CRC
+        command |= 1 << 4; // resp OPCODE
+        break;
+    case CMD8:
+        // R7
+        command |= 1; // 48 bits
+        command |= 1 << 3; // resp CRC
+        command |= 1 << 4; // resp OPCODE
+        break;
+    }
+
+    if (blocks) {
+        command |= 1 << 5;
+        if ((intptr_t)buf & 3) {
+            errno = ERR_BUF_ALIGNMENT;
+            return -1;
+        }
+        regs->dma_addres = (uint64_t)(intptr_t)buf;
+        regs->block_size = 511;
+        regs->block_count = blocks - 1;
+        regs->data_timeout = 0xFFFFFF;
+    }
+
+    regs->command = command;
+    regs->cmd_timeout = 0xFFFFF;
+    regs->argument = arg;
+
+    if (sdc_cmd_finish(cmd) < 0) return -1;
+    if (blocks) return sdc_data_finish();
+
+    return 0;
+}
